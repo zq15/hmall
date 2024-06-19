@@ -9,8 +9,6 @@ import com.hmall.domain.dto.OrderFormDTO;
 import com.hmall.domain.po.Order;
 import com.hmall.domain.po.OrderDetail;
 import com.hmall.mapper.OrderMapper;
-import com.hmall.service.ICartService;
-import com.hmall.service.IItemService;
 import com.hmall.service.IOrderDetailService;
 import com.hmall.service.IOrderService;
 import lombok.RequiredArgsConstructor;
@@ -36,13 +34,15 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements IOrderService {
 
-    private final IItemService itemService;
+//    private final IItemService itemService;
     private final IOrderDetailService detailService;
-    private final ICartService cartService;
+//    private final ICartService cartService;
 
     @Override
     @Transactional
     public Long createOrder(OrderFormDTO orderFormDTO) {
+        // todo 订单
+        /*
         // 1.订单数据
         Order order = new Order();
         // 1.1.查询商品
@@ -83,6 +83,8 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
             throw new RuntimeException("库存不足！");
         }
         return order.getId();
+         */
+        return 1L;
     }
 
     @Override
