@@ -4,6 +4,7 @@ import cn.hutool.core.util.RandomUtil;
 import cn.hutool.core.util.StrUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.hmall.cart.client.ItemClient;
 import com.hmall.cart.domain.dto.CartFormDTO;
 import com.hmall.cart.domain.dto.ItemDTO;
 import com.hmall.cart.domain.po.Cart;
@@ -43,11 +44,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class CartServiceImpl extends ServiceImpl<CartMapper, Cart> implements ICartService {
 
-//    private final IItemService itemService;
-
-    private final RestTemplate restTemplate;
-
-    private final DiscoveryClient discoveryClient;
+    private final ItemClient itemClient;
 
     @Override
     public void addItem2Cart(CartFormDTO cartFormDTO) {
@@ -91,27 +88,10 @@ public class CartServiceImpl extends ServiceImpl<CartMapper, Cart> implements IC
     }
 
     private void handleCartItems(List<CartVO> vos) {
-        // 1.获取商品id TODO 处理商品信息
+        // 1.获取商品id
         Set<Long> itemIds = vos.stream().map(CartVO::getItemId).collect(Collectors.toSet());
         // 2.查询商品
-//        List<ItemDTO> items = itemService.queryItemByIds(itemIds);
-        // 改为使用 rest 服务查询
-        // GET http://localhost:8081/items?ids=100000006163
-        // 2.1 item-service 流程列表
-        List<ServiceInstance> instances = discoveryClient.getInstances("item-service");
-        ServiceInstance instance = instances.get(RandomUtil.randomInt(instances.size()));
-        ResponseEntity<List<ItemDTO>> response = restTemplate.exchange(
-                instance.getUri() + "/items?ids={ids}",
-                HttpMethod.GET,
-                null,
-                new ParameterizedTypeReference<List<ItemDTO>>() {
-                },
-                CollUtils.join(itemIds, ","));
-
-        List<ItemDTO> items = null;
-        if (response.getStatusCode().is2xxSuccessful()) {
-            items = response.getBody();
-        }
+        List<ItemDTO> items = itemClient.queryItemByIds(itemIds);
 
         if (CollUtils.isEmpty(items)) {
             throw new RuntimeException("查询的商品不存在");
