@@ -58,16 +58,17 @@ public class AuthGlobalFilter implements GlobalFilter, Ordered {
         }
 
         // 4.2 校验成功放行
-        // todo 设置用户上下文信息
-        System.out.println("userId = " + userId);
+        // 把 userId 存放在 user-info 这个 header 中
+        String userInfo = userId.toString();
+        ServerWebExchange ex = exchange.mutate().request(b -> b.header("user-info", userInfo)).build();
 
-        return chain.filter(exchange);
+        return chain.filter(ex);
     }
 
     /**
      * 判断路径是否在 excludePaths 中，是就返回true
-     * @param antPath
-     * @return
+     * @param antPath 请求路径
+     * @return 是否在 excludePaths 中
      */
     private boolean isExclude(String antPath) {
         for (String pathPattern : authProperties.getExcludePaths()) {
