@@ -4,7 +4,6 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.hmall.common.exception.BadRequestException;
 import com.hmall.common.exception.BizIllegalException;
 import com.hmall.common.exception.ForbiddenException;
-import com.hmall.common.utils.UserContext;
 import com.hmall.user.config.JwtProperties;
 import com.hmall.user.domain.dto.LoginFormDTO;
 import com.hmall.user.domain.po.User;
