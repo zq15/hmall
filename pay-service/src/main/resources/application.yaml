@@ -17,6 +17,12 @@ hm:
   db:
     database: hm-pay
 spring:
+  rabbitmq:
+    host: 192.168.139.10 # 你的虚拟机IP
+    port: 5672 # 端口
+    virtual-host: /hmall # 虚拟主机
+    username: hmall # 用户名
+    password: 123 # 密码
   cloud:
     sentinel:
       transport:
