@@ -1,6 +1,7 @@
 package com.hmall.trade.service.impl;
 
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hmall.api.client.CartClient;
 import com.hmall.api.client.ItemClient;
 import com.hmall.api.dto.ItemDTO;
@@ -15,6 +16,12 @@ import com.hmall.trade.service.IOrderDetailService;
 import com.hmall.trade.service.IOrderService;
 import io.seata.spring.annotation.GlobalTransactional;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.amqp.AmqpException;
+import org.springframework.amqp.core.Message;
+import org.springframework.amqp.core.MessagePostProcessor;
+import org.springframework.amqp.core.MessageProperties;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -33,13 +40,15 @@ import java.util.stream.Collectors;
  * @author 虎哥
  * @since 2023-05-05
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements IOrderService {
 
     private final ItemClient itemClient;
     private final IOrderDetailService detailService;
-    private final CartClient cartClient;
+//    private final CartClient cartClient;
+    private final RabbitTemplate rabbitTemplate;
 
     @Override
     @GlobalTransactional
@@ -75,7 +84,17 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
         detailService.saveBatch(details);
 
         // 3.清理购物车商品
-        cartClient.deleteCartItemByIds(itemIds);
+//        cartClient.deleteCartItemByIds(itemIds);
+        // mq
+        try {
+            ObjectMapper objectMapper = new ObjectMapper();
+            byte[] messageByte = objectMapper.writeValueAsBytes(itemIds);
+            MessageProperties messageProperties = new MessageProperties();
+            messageProperties.setHeader("user-info", UserContext.getUser());
+            rabbitTemplate.send("trade.topic", "order.create", new Message(messageByte, messageProperties));
+        } catch (Exception e) {
+            log.error("创建订单成功的消息发送失败！ 需要清理的商品id {}", itemIds, e); // log.error 默认会处理最后一个e
+        }
 
         // 4.扣减库存
         try {
