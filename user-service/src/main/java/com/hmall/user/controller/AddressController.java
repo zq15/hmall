@@ -38,9 +38,8 @@ public class AddressController {
     public AddressDTO findAddressById(@ApiParam("地址id") @PathVariable("addressId") Long id) {
         // 1.根据id查询
         Address address = addressService.getById(id);
-        // 2.判断当前用户 todo
-//        Long userId = UserContext.getUser();
-        Long userId = 1L;
+        // 2.判断当前用户
+        Long userId = UserContext.getUser();
         if(!address.getUserId().equals(userId)){
             throw new BadRequestException("地址不属于当前登录用户");
         }
