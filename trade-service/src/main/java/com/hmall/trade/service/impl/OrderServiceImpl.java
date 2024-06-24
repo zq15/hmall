@@ -87,11 +87,13 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
 //        cartClient.deleteCartItemByIds(itemIds);
         // mq
         try {
-            ObjectMapper objectMapper = new ObjectMapper();
-            byte[] messageByte = objectMapper.writeValueAsBytes(itemIds);
-            MessageProperties messageProperties = new MessageProperties();
-            messageProperties.setHeader("user-info", UserContext.getUser());
-            rabbitTemplate.send("trade.topic", "order.create", new Message(messageByte, messageProperties));
+            rabbitTemplate.convertAndSend("trade.topic", "order.create", itemIds, new MessagePostProcessor() {
+                @Override
+                public Message postProcessMessage(Message message) throws AmqpException {
+                    message.getMessageProperties().setHeader("user-info", UserContext.getUser());
+                    return message;
+                }
+            });
         } catch (Exception e) {
             log.error("创建订单成功的消息发送失败！ 需要清理的商品id {}", itemIds, e); // log.error 默认会处理最后一个e
         }

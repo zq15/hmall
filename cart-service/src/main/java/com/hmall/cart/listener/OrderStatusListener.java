@@ -22,7 +22,6 @@ import static org.springframework.amqp.core.ExchangeTypes.TOPIC;
 @RequiredArgsConstructor
 public class OrderStatusListener {
 
-    private static final Logger log = LoggerFactory.getLogger(OrderStatusListener.class);
     private final ICartService cartService;
 
     @RabbitListener(bindings = @QueueBinding(
@@ -30,24 +29,7 @@ public class OrderStatusListener {
             exchange = @Exchange(name = "trade.topic", type = TOPIC),
             key = "order.create"
     ))
-    public void handleOrderCreate(Message message) {
-        MessageProperties messageProperties = message.getMessageProperties();
-        log.info("收到消息: {}", messageProperties);
-        Long userId = (Long) messageProperties.getHeader("user-info");
-        log.info("读取到的 userId: {}", userId);
-        if (userId==null) {
-            log.error("未获取到用户信息： {}", message.getMessageProperties().getMessageId());
-        }
-        UserContext.setUser(userId);
-        byte[] body = message.getBody();
-        ObjectMapper objectMapper = new ObjectMapper();
-        Collection<Long> orderIds = null;
-        try {
-            orderIds = objectMapper.readValue(body, Collection.class);
-            log.info("读取到的 orderIds: {}", orderIds);
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+    public void handleOrderCreate(Collection<Long> orderIds) {
         cartService.removeByItemIds(orderIds);
     }
 }
