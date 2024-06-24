@@ -29,8 +29,4 @@ public class ItemClientFallback implements FallbackFactory<ItemClient> {
             }
         };
     }
-
-    public static void main(String[] args) {
-        log.error("远程调用queryItemByIds方法异常，参数: {}, 异常: {}", 1, "空指针异常");
-    }
 }
