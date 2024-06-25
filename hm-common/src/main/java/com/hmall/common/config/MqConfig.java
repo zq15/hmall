@@ -1,6 +1,7 @@
 package com.hmall.common.config;
 
 import cn.hutool.core.util.ObjectUtil;
+import com.hmall.common.utils.RabbitMqHelper;
 import com.hmall.common.utils.UserContext;
 import org.springframework.amqp.core.Message;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
@@ -28,5 +29,10 @@ public class MqConfig {
         };
         jackson2JsonMessageConverter.setCreateMessageIds(true);
         return jackson2JsonMessageConverter;
+    }
+
+    @Bean
+    public RabbitMqHelper rabbitMqHelper(RabbitTemplate rabbitTemplate) {
+        return new RabbitMqHelper(rabbitTemplate);
     }
 }
