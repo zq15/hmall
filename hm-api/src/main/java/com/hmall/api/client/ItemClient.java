@@ -23,4 +23,7 @@ public interface ItemClient {
 
     @PutMapping("/items/stock/deduct")
     void deductStock(@RequestBody List<OrderDetailDTO> items);
+
+    @PutMapping("/items/stock/deduct")
+    void restoreStock(@RequestBody List<OrderDetailDTO> items);
 }

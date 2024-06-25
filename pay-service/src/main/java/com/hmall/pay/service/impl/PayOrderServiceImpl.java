@@ -39,8 +39,6 @@ public class PayOrderServiceImpl extends ServiceImpl<PayOrderMapper, PayOrder> i
 
     private final UserClient userClient;
 
-    private final OrderClient orderClient;
-
     private final RabbitTemplate rabbitTemplate;
 
     @Override
@@ -75,6 +73,15 @@ public class PayOrderServiceImpl extends ServiceImpl<PayOrderMapper, PayOrder> i
         } catch (Exception e) {
             log.error("支付成功的消息发送失败！支付单id {} 交易单id {}", po.getId(), po.getBizOrderNo(), e); // log.error 默认会处理最后一个e
         }
+    }
+
+    @Override
+    public void tryCancelPay(Long id) {
+        boolean success = lambdaUpdate()
+                .set(PayOrder::getStatus, PayStatus.TRADE_CLOSED.getValue())
+                .eq(PayOrder::getId, id)
+                .in(PayOrder::getStatus, PayStatus.NOT_COMMIT.getValue(), PayStatus.WAIT_BUYER_PAY.getValue())
+                .update();
     }
 
     public boolean markPayOrderSuccess(Long id, LocalDateTime successTime) {

@@ -1,8 +1,11 @@
 package com.hmall.pay.controller;
 
+import com.hmall.api.dto.PayOrderDTO;
 import com.hmall.common.exception.BizIllegalException;
+import com.hmall.common.utils.BeanUtils;
 import com.hmall.pay.domain.dto.PayApplyDTO;
 import com.hmall.pay.domain.dto.PayOrderFormDTO;
+import com.hmall.pay.domain.po.PayOrder;
 import com.hmall.pay.enums.PayType;
 import com.hmall.pay.service.IPayOrderService;
 import io.swagger.annotations.Api;
@@ -35,5 +38,17 @@ public class PayController {
     public void tryPayOrderByBalance(@PathVariable("id") Long id, @RequestBody PayOrderFormDTO payOrderFormDTO){
         payOrderFormDTO.setId(id);
         payOrderService.tryPayOrderByBalance(payOrderFormDTO);
+    }
+    @ApiOperation("根据id查询支付单")
+    @GetMapping("/biz/{id}")
+    public PayOrderDTO queryPayOrderByBizOrderNo(@PathVariable("id") Long id){
+        PayOrder payOrder = payOrderService.lambdaQuery().eq(PayOrder::getBizOrderNo, id).one();
+        return BeanUtils.copyBean(payOrder, PayOrderDTO.class);
+    }
+    @ApiOperation("尝试设置支付单为超时未支付")
+    @ApiImplicitParam(value = "支付单id", name = "id")
+    @PostMapping("/cancel/{id}")
+    public void tryCancelPay(@PathVariable("id") Long id){
+        payOrderService.tryCancelPay(id);
     }
 }

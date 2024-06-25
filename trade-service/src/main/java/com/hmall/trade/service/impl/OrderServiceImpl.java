@@ -4,11 +4,14 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hmall.api.client.CartClient;
 import com.hmall.api.client.ItemClient;
+import com.hmall.api.client.OrderClient;
+import com.hmall.api.client.PayClient;
 import com.hmall.api.dto.ItemDTO;
 import com.hmall.api.dto.OrderDetailDTO;
 import com.hmall.common.exception.BadRequestException;
 import com.hmall.common.utils.UserContext;
 import com.hmall.api.dto.OrderFormDTO;
+import com.hmall.trade.constant.MQConstants;
 import com.hmall.trade.domain.po.Order;
 import com.hmall.trade.domain.po.OrderDetail;
 import com.hmall.trade.mapper.OrderMapper;
@@ -49,10 +52,12 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
     private final IOrderDetailService detailService;
 //    private final CartClient cartClient;
     private final RabbitTemplate rabbitTemplate;
+    private final PayClient payClient;
 
     @Override
     @GlobalTransactional
     public Long createOrder(OrderFormDTO orderFormDTO) {
+        log.info("开始处理", System.currentTimeMillis());
         // 1.订单数据
         Order order = new Order();
         // 1.1.查询商品
@@ -104,6 +109,13 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
         } catch (Exception e) {
             throw new RuntimeException("库存不足！");
         }
+
+        // 5. 发送延迟消息，校验订单支付状态
+        rabbitTemplate.convertAndSend(MQConstants.DELAY_EXCHANGE_NAME, MQConstants.DELAY_ORDER_KEY, order.getId(), message -> {
+            message.getMessageProperties().setDelay(10000);
+            return message;
+        });
+        log.info("处理完毕，订单创建成功！", System.currentTimeMillis());
         return order.getId();
     }
 
@@ -116,6 +128,45 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
                 .eq(Order::getId, orderId)
                 .eq(Order::getStatus, 1)
                 .update();
+    }
+
+    @Override
+    @GlobalTransactional
+    public void cancelOrder(Long orderId) {
+        // 1. 取消订单
+        // UPDATE `order` SET status = ? WHERE id = ? AND status = 1
+        lambdaUpdate()
+                .set(Order::getStatus, 3)
+                .eq(Order::getId, orderId)
+                .eq(Order::getStatus, 1)
+                .update();
+
+        // 2. 恢复库存
+        // 2.1. 查询订单详情
+        List<OrderDetail> details = detailService.lambdaQuery()
+                .eq(OrderDetail::getOrderId, orderId)
+                .list();
+        // 2.2. 恢复库存
+        List<OrderDetailDTO> detailDTOS = details.stream()
+                .map(detail -> {
+                    OrderDetailDTO dto = new OrderDetailDTO();
+                    dto.setItemId(detail.getItemId());
+                    dto.setNum(detail.getNum());
+                    return dto;
+                })
+                .collect(Collectors.toList());
+        try {
+            itemClient.restoreStock(detailDTOS);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+
+        // 3. 将支付单状态改为超时未支付
+        try {
+            payClient.tryCancelPay(orderId);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 
     private List<OrderDetail> buildDetails(Long orderId, List<ItemDTO> items, Map<Long, Integer> numMap) {
