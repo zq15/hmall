@@ -53,7 +53,7 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
     private final IOrderDetailService detailService;
     private final RabbitTemplate rabbitTemplate;
     private final PayClient payClient;
-    private RabbitMqHelper rabbitMqHelper;
+    private final RabbitMqHelper rabbitMqHelper;
 
     @Override
     @GlobalTransactional
