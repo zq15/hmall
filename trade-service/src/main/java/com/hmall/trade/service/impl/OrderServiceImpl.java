@@ -109,11 +109,13 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
 
     @Override
     public void markOrderPaySuccess(Long orderId) {
-        Order order = new Order();
-        order.setId(orderId);
-        order.setStatus(2);
-        order.setPayTime(LocalDateTime.now());
-        updateById(order);
+        // UPDATE `order` SET status = ? , pay_time = ? WHERE id = ? AND status = 1
+        lambdaUpdate()
+                .set(Order::getStatus, 2)
+                .set(Order::getPayTime, LocalDateTime.now())
+                .eq(Order::getId, orderId)
+                .eq(Order::getStatus, 1)
+                .update();
     }
 
     private List<OrderDetail> buildDetails(Long orderId, List<ItemDTO> items, Map<Long, Integer> numMap) {
