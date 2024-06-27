@@ -1,0 +1,14 @@
+server:
+  port: 8088
+hm:
+  swagger:
+    title: 搜索服务接口文档
+    package: com.hmall.search.controller
+  db:
+    database: hm-user
+spring:
+  cloud:
+    sentinel:
+      transport:
+        dashboard: 192.168.139.10:8090
+      http-method-specify: true # 开启请求方式前缀
