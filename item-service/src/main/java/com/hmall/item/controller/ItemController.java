@@ -101,11 +101,15 @@ public class ItemController {
     @PutMapping("/stock/deduct")
     public void deductStock(@RequestBody List<OrderDetailDTO> items){
         itemService.deductStock(items);
+
+        rabbitMqHelper.sendMessage("stock.direct", "stock.detuct", items);
     }
 
     @ApiOperation("批量恢复库存")
     @PutMapping("/stock/restore")
     public void restoreStock(@RequestBody List<OrderDetailDTO> items){
         itemService.restoreStock(items);
+
+        rabbitMqHelper.sendMessage("stock.direct", "stock.restore", items);
     }
 }

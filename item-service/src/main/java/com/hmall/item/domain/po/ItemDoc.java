@@ -19,6 +19,9 @@ public class ItemDoc {
     @ApiModelProperty("价格（分）")
     private Integer price;
 
+    @ApiModelProperty("库存数量")
+    private Integer stock;
+
     @ApiModelProperty("商品图片")
     private String image;
 

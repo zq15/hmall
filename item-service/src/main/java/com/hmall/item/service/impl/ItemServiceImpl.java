@@ -31,16 +31,12 @@ import java.util.List;
 @AllArgsConstructor
 public class ItemServiceImpl extends ServiceImpl<ItemMapper, Item> implements IItemService {
 
-    private final RestHighLevelClient client;
-
     @Override
     public void deductStock(List<OrderDetailDTO> items) {
         String sqlStatement = "com.hmall.item.mapper.ItemMapper.deductStock";
         boolean r = false;
         try {
             r = executeBatch(items, (sqlSession, entity) -> sqlSession.update(sqlStatement, entity));
-
-            // todo es
         } catch (Exception e) {
             throw new BizIllegalException("更新库存异常，可能是库存不足!", e);
         }
@@ -60,7 +56,6 @@ public class ItemServiceImpl extends ServiceImpl<ItemMapper, Item> implements II
         boolean r = false;
         try {
             r = executeBatch(items, (sqlSession, entity) -> sqlSession.update(sqlStatement, entity));
-           // todo es
         } catch (Exception e) {
             throw new BizIllegalException("恢复库存异常，可能是库存不足!", e);
         }
