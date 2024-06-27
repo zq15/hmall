@@ -1,5 +1,6 @@
 package com.hmall.search.controller;
 
+import cn.hutool.core.util.StrUtil;
 import cn.hutool.json.JSONUtil;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.hmall.common.domain.PageDTO;
@@ -48,14 +49,23 @@ public class SearchController {
         BoolQueryBuilder boolQuery = new BoolQueryBuilder();
 
         // 添加过滤条件
-        boolQuery.filter(new TermQueryBuilder("brand", itemPageQuery.getBrand()));
-        boolQuery.filter(new TermQueryBuilder("category", itemPageQuery.getCategory()));
-        boolQuery.filter(new RangeQueryBuilder("price")
-                .gte(itemPageQuery.getMinPrice())
-                .lte(itemPageQuery.getMaxPrice()));
+        if (itemPageQuery.getMinPrice() != null) {
+            boolQuery.filter(new RangeQueryBuilder("price").gte(itemPageQuery.getMinPrice()));
+        }
+        if (itemPageQuery.getMaxPrice() != null) {
+            boolQuery.filter(new RangeQueryBuilder("price").lte(itemPageQuery.getMaxPrice()));
+        }
+        if (StrUtil.isNotBlank(itemPageQuery.getBrand())) {
+            boolQuery.filter(new TermQueryBuilder("brand", itemPageQuery.getBrand()));
+        }
+        if (StrUtil.isNotBlank(itemPageQuery.getCategory())) {
+            boolQuery.filter(new TermQueryBuilder("category", itemPageQuery.getCategory()));
+        }
 
         // 添加必须匹配的条件
-        boolQuery.must(new MatchQueryBuilder("name", itemPageQuery.getKey()));
+        if (StrUtil.isNotBlank(itemPageQuery.getKey())) {
+            boolQuery.must(new MatchQueryBuilder("name", itemPageQuery.getKey()));
+        }
 
         // 构建搜索源构建器
         SearchSourceBuilder sourceBuilder = new SearchSourceBuilder()

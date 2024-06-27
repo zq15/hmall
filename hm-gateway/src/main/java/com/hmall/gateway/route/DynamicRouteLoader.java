@@ -31,6 +31,7 @@ public class DynamicRouteLoader {
 
     private final Set<String> routeIds = new HashSet<>();
 
+    // todo 动态路由没有生效
     @PostConstruct
     public void loadDynamicRoute() {
         try {
