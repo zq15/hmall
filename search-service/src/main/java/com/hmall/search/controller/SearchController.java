@@ -2,7 +2,6 @@ package com.hmall.search.controller;
 
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.json.JSONUtil;
-import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.hmall.common.domain.PageDTO;
 import com.hmall.search.domain.po.ItemDoc;
 import com.hmall.search.domain.query.ItemFiltersQuery;
@@ -115,11 +114,8 @@ public class SearchController {
             ItemDoc item = JSONUtil.toBean(source, ItemDoc.class);
             itemDocList.add(item);
         }
-        Page<ItemDoc> itemDocPage = new Page<ItemDoc>().setRecords(itemDocList);
-        itemDocPage.setPages(itemPageQuery.getPageNo());
-        itemDocPage.setTotal(total);
-        // todo 不依赖 MybatisPlus 的 Page
-        return PageDTO.of(itemDocPage, ItemDoc.class);
+
+        return new PageDTO<>(total, itemPageQuery.getPageNo().longValue(), itemDocList);
     }
 
     @ApiOperation("搜索条件")

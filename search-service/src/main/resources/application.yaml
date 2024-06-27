@@ -4,8 +4,6 @@ hm:
   swagger:
     title: 搜索服务接口文档
     package: com.hmall.search.controller
-  db:
-    database: hm-user
 spring:
   cloud:
     sentinel:
