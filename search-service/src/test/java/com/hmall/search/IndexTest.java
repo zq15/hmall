@@ -1,5 +1,6 @@
 package com.hmall.search;
 
+import cn.hutool.core.util.StrUtil;
 import cn.hutool.json.JSONUtil;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.hmall.common.domain.PageDTO;
@@ -26,7 +27,10 @@ import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 public class IndexTest {
 
@@ -83,7 +87,6 @@ public class IndexTest {
         // 4.解析响应
         handleResponse(response);
     }
-
 
     @Test
     void testMultiMatch() throws IOException {
@@ -238,6 +241,62 @@ public class IndexTest {
         itemDocPage.setTotal(total);
         PageDTO<ItemDoc> itemDocPageDTO = PageDTO.of(itemDocPage, ItemDoc.class);
         System.out.println(itemDocPageDTO);
+    }
+
+    @Test
+    public void filtersItem() throws IOException {
+        ItemPageQuery itemPageQuery = new ItemPageQuery();
+        itemPageQuery.setBrand("小米");
+        itemPageQuery.setCategory("手机");
+        itemPageQuery.setMinPrice(10000);
+        itemPageQuery.setMaxPrice(29900);
+        itemPageQuery.setKey("手机");
+        itemPageQuery.setPageNo(1);
+        itemPageQuery.setPageSize(20);
+
+        // 创建BoolQueryBuilder
+        BoolQueryBuilder boolQuery = new BoolQueryBuilder();
+
+        // 添加必须匹配的条件
+        if (StrUtil.isNotBlank(itemPageQuery.getKey())) {
+            boolQuery.must(new MatchQueryBuilder("name", itemPageQuery.getKey()));
+        }
+
+        // 构建搜索源构建器
+        SearchSourceBuilder sourceBuilder = new SearchSourceBuilder()
+                .query(boolQuery)
+                // 添加排序
+                .sort(new FieldSortBuilder("sold").order(SortOrder.DESC))
+                // 设置每页大小和起始位置
+                .size(0);
+
+        // 创建搜索请求对象
+        SearchRequest searchRequest = new SearchRequest();
+        searchRequest.indices("items"); // 指定索引名
+        searchRequest.source(sourceBuilder);
+        searchRequest.source()
+                .aggregation(
+                        AggregationBuilders.terms("category_agg").field("category"))
+                .aggregation(
+                        AggregationBuilders.terms("brand_agg").field("brand"));
+
+        // 执行搜索请求
+        SearchResponse response = client.search(searchRequest, RequestOptions.DEFAULT);
+
+        // 5.解析聚合结果
+        Aggregations aggregations = response.getAggregations();
+        Map<String, List<String>> resultMap = new HashMap<>();
+        Terms categoryTerms = aggregations.get("category_agg");
+        if (categoryTerms!=null){
+            List<? extends Terms.Bucket> buckets = categoryTerms.getBuckets();
+            resultMap.put("category", buckets.stream().map(Terms.Bucket::getKeyAsString).collect(Collectors.toList()));
+        }
+        Terms brandTerms = aggregations.get("brand_agg");
+        if (categoryTerms!=null){
+            List<? extends Terms.Bucket> buckets = brandTerms.getBuckets();
+            resultMap.put("brand", buckets.stream().map(Terms.Bucket::getKeyAsString).collect(Collectors.toList()));
+        }
+        System.out.println(resultMap);
     }
 
     @AfterEach

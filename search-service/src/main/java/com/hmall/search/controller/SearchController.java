@@ -5,10 +5,12 @@ import cn.hutool.json.JSONUtil;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.hmall.common.domain.PageDTO;
 import com.hmall.search.domain.po.ItemDoc;
+import com.hmall.search.domain.query.ItemFiltersQuery;
 import com.hmall.search.domain.query.ItemPageQuery;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.http.HttpHost;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
@@ -21,17 +23,22 @@ import org.elasticsearch.index.query.RangeQueryBuilder;
 import org.elasticsearch.index.query.TermQueryBuilder;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.SearchHits;
+import org.elasticsearch.search.aggregations.AggregationBuilders;
+import org.elasticsearch.search.aggregations.Aggregations;
+import org.elasticsearch.search.aggregations.bucket.terms.Terms;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.elasticsearch.search.sort.FieldSortBuilder;
 import org.elasticsearch.search.sort.SortOrder;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
+@Slf4j
 @Api(tags = "搜索相关接口")
 @RestController
 @RequestMapping("/search")
@@ -45,6 +52,9 @@ public class SearchController {
     @ApiOperation("搜索商品")
     @GetMapping("/list")
     public PageDTO<ItemDoc> search(ItemPageQuery itemPageQuery) throws IOException {
+        log.info("itemPageQuery: {}", itemPageQuery);
+
+
         // 创建BoolQueryBuilder
         BoolQueryBuilder boolQuery = new BoolQueryBuilder();
 
@@ -101,6 +111,54 @@ public class SearchController {
         itemDocPage.setPages(itemPageQuery.getPageNo());
         itemDocPage.setTotal(total);
         return PageDTO.of(itemDocPage, ItemDoc.class);
+    }
+
+    @ApiOperation("搜索条件")
+    @PostMapping("/filters")
+    public Map<String, List<String>> filters(@RequestBody ItemFiltersQuery query) throws IOException {
+        // 创建BoolQueryBuilder
+        BoolQueryBuilder boolQuery = new BoolQueryBuilder();
+
+        // 添加必须匹配的条件
+        if (StrUtil.isNotBlank(query.getKey())) {
+            boolQuery.must(new MatchQueryBuilder("name", query.getKey()));
+        }
+
+        // 构建搜索源构建器
+        SearchSourceBuilder sourceBuilder = new SearchSourceBuilder()
+                .query(boolQuery)
+                // 添加排序
+                .sort(new FieldSortBuilder("sold").order(SortOrder.DESC))
+                // 设置每页大小和起始位置
+                .size(0);
+
+        // 创建搜索请求对象
+        SearchRequest searchRequest = new SearchRequest();
+        searchRequest.indices("items"); // 指定索引名
+        searchRequest.source(sourceBuilder);
+        searchRequest.source()
+                .aggregation(
+                        AggregationBuilders.terms("category_agg").field("category"))
+                .aggregation(
+                        AggregationBuilders.terms("brand_agg").field("brand"));
+
+        // 执行搜索请求
+        SearchResponse response = client.search(searchRequest, RequestOptions.DEFAULT);
+
+        // 5.解析聚合结果
+        Aggregations aggregations = response.getAggregations();
+        Map<String, List<String>> resultMap = new HashMap<>();
+        Terms categoryTerms = aggregations.get("category_agg");
+        if (categoryTerms!=null){
+            List<? extends Terms.Bucket> buckets = categoryTerms.getBuckets();
+            resultMap.put("category", buckets.stream().map(Terms.Bucket::getKeyAsString).collect(Collectors.toList()));
+        }
+        Terms brandTerms = aggregations.get("brand_agg");
+        if (categoryTerms!=null){
+            List<? extends Terms.Bucket> buckets = brandTerms.getBuckets();
+            resultMap.put("brand", buckets.stream().map(Terms.Bucket::getKeyAsString).collect(Collectors.toList()));
+        }
+        return resultMap;
     }
 
 }
