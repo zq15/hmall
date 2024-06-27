@@ -17,10 +17,12 @@ import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestHighLevelClient;
-import org.elasticsearch.index.query.BoolQueryBuilder;
-import org.elasticsearch.index.query.MatchQueryBuilder;
-import org.elasticsearch.index.query.RangeQueryBuilder;
-import org.elasticsearch.index.query.TermQueryBuilder;
+import org.elasticsearch.common.lucene.search.function.CombineFunction;
+import org.elasticsearch.common.lucene.search.function.FunctionScoreQuery;
+import org.elasticsearch.index.query.*;
+import org.elasticsearch.index.query.functionscore.FunctionScoreQueryBuilder;
+import org.elasticsearch.index.query.functionscore.ScoreFunctionBuilder;
+import org.elasticsearch.index.query.functionscore.ScoreFunctionBuilders;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.SearchHits;
 import org.elasticsearch.search.aggregations.AggregationBuilders;
@@ -52,11 +54,8 @@ public class SearchController {
     @ApiOperation("搜索商品")
     @GetMapping("/list")
     public PageDTO<ItemDoc> search(ItemPageQuery itemPageQuery) throws IOException {
-        log.info("itemPageQuery: {}", itemPageQuery);
-
-
         // 创建BoolQueryBuilder
-        BoolQueryBuilder boolQuery = new BoolQueryBuilder();
+        BoolQueryBuilder boolQuery = QueryBuilders.boolQuery();
 
         // 添加过滤条件
         if (itemPageQuery.getMinPrice() != null) {
@@ -72,19 +71,28 @@ public class SearchController {
             boolQuery.filter(new TermQueryBuilder("category", itemPageQuery.getCategory()));
         }
 
-        // 添加必须匹配的条件
-        if (StrUtil.isNotBlank(itemPageQuery.getKey())) {
-            boolQuery.must(new MatchQueryBuilder("name", itemPageQuery.getKey()));
-        }
+        // 关键字查询
+        QueryBuilder qb = StrUtil.isNotBlank(itemPageQuery.getKey())?
+                QueryBuilders.matchQuery(itemPageQuery.getKey(), "name")
+                : QueryBuilders.matchAllQuery();
+        // 打分函数
+        FunctionScoreQueryBuilder.FilterFunctionBuilder[] functions = {
+                new FunctionScoreQueryBuilder.FilterFunctionBuilder(QueryBuilders.termQuery("isAD", "true"), // 满足条件, isAD 必须为 10
+                        ScoreFunctionBuilders.weightFactorFunction(10f)) // 算分权重10
+        };
+        FunctionScoreQueryBuilder functionScoreQueryBuilder = QueryBuilders
+                .functionScoreQuery(qb, functions)
+                .boostMode(CombineFunction.MULTIPLY);
+        boolQuery.must(functionScoreQueryBuilder);
 
-        // 构建搜索源构建器
+        // 处理分页和排序
         SearchSourceBuilder sourceBuilder = new SearchSourceBuilder()
                 .query(boolQuery)
-                // 添加排序
-                .sort(new FieldSortBuilder("sold").order(SortOrder.DESC))
-                // 设置每页大小和起始位置
                 .size(itemPageQuery.getPageSize())
-                .from(itemPageQuery.getPageNo());
+                .from((itemPageQuery.getPageNo()-1)*itemPageQuery.getPageSize())
+                .sort(StrUtil.isNotBlank(itemPageQuery.getSortBy()) ? new FieldSortBuilder(itemPageQuery.getSortBy())
+                    : new FieldSortBuilder("updateTime")
+                .order(itemPageQuery.getIsAsc() ? SortOrder.ASC : SortOrder.DESC));
 
         // 创建搜索请求对象
         SearchRequest searchRequest = new SearchRequest();
@@ -110,6 +118,7 @@ public class SearchController {
         Page<ItemDoc> itemDocPage = new Page<ItemDoc>().setRecords(itemDocList);
         itemDocPage.setPages(itemPageQuery.getPageNo());
         itemDocPage.setTotal(total);
+        // todo 不依赖 MybatisPlus 的 Page
         return PageDTO.of(itemDocPage, ItemDoc.class);
     }
 
@@ -122,6 +131,13 @@ public class SearchController {
         // 添加必须匹配的条件
         if (StrUtil.isNotBlank(query.getKey())) {
             boolQuery.must(new MatchQueryBuilder("name", query.getKey()));
+        }
+
+        if (StrUtil.isNotBlank(query.getBrand())) {
+            boolQuery.filter(new TermQueryBuilder("brand", query.getBrand()));
+        }
+        if (StrUtil.isNotBlank(query.getCategory())) {
+            boolQuery.filter(new TermQueryBuilder("category", query.getCategory()));
         }
 
         // 构建搜索源构建器
@@ -138,14 +154,14 @@ public class SearchController {
         searchRequest.source(sourceBuilder);
         searchRequest.source()
                 .aggregation(
-                        AggregationBuilders.terms("category_agg").field("category"))
+                        AggregationBuilders.terms("category_agg").field("category")).size(10)
                 .aggregation(
-                        AggregationBuilders.terms("brand_agg").field("brand"));
+                        AggregationBuilders.terms("brand_agg").field("brand")).size(10);
 
         // 执行搜索请求
         SearchResponse response = client.search(searchRequest, RequestOptions.DEFAULT);
 
-        // 5.解析聚合结果
+        // 解析聚合结果
         Aggregations aggregations = response.getAggregations();
         Map<String, List<String>> resultMap = new HashMap<>();
         Terms categoryTerms = aggregations.get("category_agg");

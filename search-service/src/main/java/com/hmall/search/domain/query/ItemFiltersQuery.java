@@ -11,4 +11,6 @@ public class ItemFiltersQuery {
     private Integer pageNo;
     private Integer pageSize;
     private String sortBy;
+    private String brand;
+    private String category;
 }
